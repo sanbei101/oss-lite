@@ -16,23 +16,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: latest
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: 'pnpm'
+          cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
           
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm install
 
       - name: Build
-        run: pnpm build
+        run: npm build
 
       - name: Publish to npm
-        run: pnpm publish --no-git-checks
+        run: npm publish --no-git-checks
