@@ -5,6 +5,7 @@
   "keywords": [],
   "license": "ISC",
   "author": "sanbei101",
+  "repository": "sanbei101/oss-lite",
   "type": "module",
   "main": "index.js",
   "scripts": {
