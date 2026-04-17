@@ -1,6 +1,6 @@
 {
   "name": "oss-lite",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "A lightweight OSS client for Node.js",
   "keywords": [],
   "license": "ISC",
