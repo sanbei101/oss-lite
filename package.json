@@ -2,15 +2,23 @@
   "name": "oss-lite",
   "version": "1.0.3",
   "description": "A lightweight OSS client for Node.js",
-  "keywords": [],
+  "keywords": [
+    "client",
+    "oss"
+  ],
   "license": "ISC",
   "author": "sanbei101",
   "repository": "sanbei101/oss-lite",
+  "files": [
+    "dist"
+  ],
   "type": "module",
-  "main": "index.js",
+  "main": "./dist/oss.js",
+  "types": "./dist/oss.d.ts",
   "scripts": {
     "test": "vitest",
-    "build": "tsdown"
+    "build": "tsdown",
+    "prepack": "tsdown"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
