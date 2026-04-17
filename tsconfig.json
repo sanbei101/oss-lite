@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "types": ["node"],
+    "declaration": true,
+    "isolatedDeclarations": true
+  },
+  "files": ["oss.ts", "oss.test.ts"]
+}

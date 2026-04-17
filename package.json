@@ -1,0 +1,21 @@
+{
+  "name": "oss-lite",
+  "version": "1.0.0",
+  "description": "A lightweight OSS client for Node.js",
+  "keywords": [],
+  "license": "ISC",
+  "author": "sanbei101",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest",
+    "build": "tsdown"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsdown": "^0.21.9",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.4"
+  },
+  "packageManager": "pnpm@10.32.0"
+}
