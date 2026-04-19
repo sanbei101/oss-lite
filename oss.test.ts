@@ -26,7 +26,7 @@ describe('LiteOSS', () => {
 
     it('should successfully upload and download a file', async () => {
         const testContent = `hello world vitest - ${Date.now()}!`;
-        const objectName = `vitest-upload-test.txt`;
+        const objectName = `vitest-upload-test-${Date.now()}.txt`;
         const uploadRes = await oss.uploadFile(objectName, testContent, 'text/plain');
         expect(uploadRes.success).toBe(true);
         expect(uploadRes.objectName).toBe(objectName);
