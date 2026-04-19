@@ -3,7 +3,7 @@ import { LiteOSS } from './oss';
 
 describe('LiteOSS', () => {
     if (!process.env.OSS_ACCESS_KEY_ID || !process.env.OSS_ACCESS_KEY_SECRET) {
-        console.warn('Skipping tests: OSS_ACCESS_KEY_ID and OSS_ACCESS_KEY_SECRET environment variables are not set.');
+        it.skip('Skipped because OSS_ACCESS_KEY_ID and OSS_ACCESS_KEY_SECRET are not set', () => { });
         return;
     }
 
@@ -18,7 +18,6 @@ describe('LiteOSS', () => {
 
     it('should generate correct presigned URL', () => {
         const url = oss.getPresignedUrl('gsc.png', 3600);
-        console.log('Generated Presigned URL:', url);
         expect(url).toContain('https://tuchuang-ghr.oss-cn-beijing.aliyuncs.com/gsc.png');
         expect(url).toContain('OSSAccessKeyId=LTAI5t8bSiHSS5eWFQXkA8hZ');
         expect(url).toContain('Signature=');
@@ -37,5 +36,66 @@ describe('LiteOSS', () => {
         const downloadText = new TextDecoder().decode(downloadBuffer);
 
         expect(downloadText).toBe(testContent);
+    });
+
+    it('should get head object', async () => {
+        const objectName = `vitest-head-test-${Date.now()}.txt`;
+        await oss.uploadFile(objectName, 'head test content', 'text/plain');
+
+        const headers = await oss.headObject(objectName);
+        expect(headers).toBeDefined();
+        expect(headers.has('content-length')).toBe(true);
+        expect(headers.get('content-length')).toBe('17');
+        expect(headers.get('content-type')).toBe('text/plain');
+    });
+
+    it('should download file with range', async () => {
+        const objectName = `vitest-range-test-${Date.now()}.txt`;
+        const content = '0123456789'; // 10 bytes
+        await oss.uploadFile(objectName, content, 'text/plain');
+
+        const buffer = await oss.downloadFileWithRange(objectName, 'bytes=2-5');
+        const text = new TextDecoder().decode(buffer);
+        expect(text).toBe('2345');
+    });
+
+    it('should generate put object presign URL', () => {
+        const url = oss.putObjectPresign('presign-put.txt', 3600, 'text/plain');
+        expect(url).toContain('https://tuchuang-ghr.oss-cn-beijing.aliyuncs.com/presign-put.txt');
+        expect(url).toContain('Signature=');
+        expect(url).toContain('Expires=');
+    });
+
+    it('should successfully perform multipart upload', async () => {
+        const objectName = `vitest-multipart-test-${Date.now()}.txt`;
+        const part1Content = 'a'.repeat(102400); // 100KB minimum size for non-last parts
+        const part2Content = 'part 2 content.';
+        const fullContent = part1Content + part2Content;
+
+        const uploadId = await oss.initiateMultipartUpload(objectName, 'text/plain');
+        expect(uploadId).toBeTruthy();
+
+        const eTag1 = await oss.uploadPart(objectName, uploadId, 1, part1Content);
+        expect(eTag1).toBeTruthy();
+
+        const eTag2 = await oss.uploadPart(objectName, uploadId, 2, part2Content);
+        expect(eTag2).toBeTruthy();
+
+        await oss.completeMultipartUpload(objectName, uploadId, [
+            { partNumber: 1, eTag: eTag1 },
+            { partNumber: 2, eTag: eTag2 }
+        ]);
+
+        const downloadBuffer = await oss.downloadFile(objectName);
+        const downloadText = new TextDecoder().decode(downloadBuffer);
+        expect(downloadText).toBe(fullContent);
+    });
+
+    it('should successfully abort multipart upload', async () => {
+        const objectName = `vitest-abort-test-${Date.now()}.txt`;
+        const uploadId = await oss.initiateMultipartUpload(objectName, 'text/plain');
+        expect(uploadId).toBeTruthy();
+
+        await oss.abortMultipartUpload(objectName, uploadId);
     });
 });

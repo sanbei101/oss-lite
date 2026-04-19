@@ -157,12 +157,13 @@ export class LiteOSS {
      * @param uploadId 分片上传的 UploadId
      * @param partNumber 分片号 (1-10000)
      * @param data 分片数据
+     * @param contentType MIME 类型
      */
-    async uploadPart(objectName: string, uploadId: string, partNumber: number, data: BodyInit): Promise<string> {
+    async uploadPart(objectName: string, uploadId: string, partNumber: number, data: BodyInit, contentType: string = 'application/octet-stream'): Promise<string> {
         const verb = 'PUT';
         const date = new Date().toUTCString();
         const canonicalizedResource = `/${this.config.bucket}/${objectName}?partNumber=${partNumber}&uploadId=${uploadId}`;
-        const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+        const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
         const signature = this.computeSignature(stringToSign);
         const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -172,6 +173,7 @@ export class LiteOSS {
             method: verb,
             headers: {
                 'Date': date,
+                'Content-Type': contentType,
                 'Authorization': authorization,
             },
             body: data,

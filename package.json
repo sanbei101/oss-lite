@@ -16,12 +16,15 @@
   "main": "./dist/oss.js",
   "types": "./dist/oss.d.ts",
   "scripts": {
-    "test": "vitest",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "build": "tsdown",
     "prepack": "tsdown"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "dotenv": "^17.4.2",
     "tsdown": "^0.21.9",
     "typescript": "^6.0.3",
     "vitest": "^4.1.4"
