@@ -36,6 +36,7 @@ describe('LiteOSS', () => {
         const downloadText = new TextDecoder().decode(downloadBuffer);
 
         expect(downloadText).toBe(testContent);
+        await oss.deleteFile(objectName);
     });
 
     it('should get head object', async () => {
@@ -47,6 +48,7 @@ describe('LiteOSS', () => {
         expect(headers.has('content-length')).toBe(true);
         expect(headers.get('content-length')).toBe('17');
         expect(headers.get('content-type')).toBe('text/plain');
+        await oss.deleteFile(objectName);
     });
 
     it('should download file with range', async () => {
@@ -57,6 +59,7 @@ describe('LiteOSS', () => {
         const buffer = await oss.downloadFileWithRange(objectName, 'bytes=2-5');
         const text = new TextDecoder().decode(buffer);
         expect(text).toBe('2345');
+        await oss.deleteFile(objectName);
     });
 
     it('should generate put object presign URL', () => {
@@ -89,6 +92,7 @@ describe('LiteOSS', () => {
         const downloadBuffer = await oss.downloadFile(objectName);
         const downloadText = new TextDecoder().decode(downloadBuffer);
         expect(downloadText).toBe(fullContent);
+        await oss.deleteFile(objectName);
     });
 
     it('should successfully abort multipart upload', async () => {
@@ -97,5 +101,13 @@ describe('LiteOSS', () => {
         expect(uploadId).toBeTruthy();
 
         await oss.abortMultipartUpload(objectName, uploadId);
+    });
+
+    it('should successfully delete a file', async () => {
+        const objectName = `vitest-delete-test-${Date.now()}.txt`;
+        await oss.uploadFile(objectName, 'delete me', 'text/plain');
+
+        await oss.deleteFile(objectName);
+        await expect(oss.headObject(objectName)).rejects.toThrow('404');
     });
 });

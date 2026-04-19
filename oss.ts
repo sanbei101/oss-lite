@@ -284,7 +284,35 @@ export class LiteOSS {
     }
 
     /**
-     * HeadObject(下载辅助 API),获取文件的元数据(如大小、类型等)
+     * 删除文件
+     * @param objectName OSS 中的文件名
+     */
+    async deleteFile(objectName: string): Promise<void> {
+        const verb = 'DELETE';
+        const date = new Date().toUTCString();
+        const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
+        const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+        const signature = this.computeSignature(stringToSign);
+        const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
+
+        const url = `https://${this.endpoint}/${objectName}`;
+
+        const response = await fetch(url, {
+            method: verb,
+            headers: {
+                'Date': date,
+                'Authorization': authorization,
+            },
+        });
+
+        if (!response.ok) {
+            const errorMsg = await response.text();
+            throw new Error(`Delete Failed: ${response.status} - ${errorMsg}`);
+        }
+    }
+
+    /**
+     * 获取文件的元数据
      * @param objectName OSS 中的文件名
      */
     async headObject(objectName: string): Promise<Headers> {
