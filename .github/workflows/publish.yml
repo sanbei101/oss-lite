@@ -12,9 +12,7 @@ permissions:
 jobs:
   test:
     uses: ./.github/workflows/test.yml
-    secrets:
-      OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
-      OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+    secrets: inherit
 
   publish:
     runs-on: ubuntu-latest
