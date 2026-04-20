@@ -13,8 +13,8 @@
     "dist"
   ],
   "type": "module",
-  "main": "./dist/oss.js",
-  "types": "./dist/oss.d.ts",
+  "main": "./dist/oss.mjs",
+  "types": "./dist/oss.d.mts",
   "scripts": {
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
