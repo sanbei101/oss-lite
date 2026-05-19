@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { LiteOSS } from './oss';
 
 describe('LiteOSS', () => {
@@ -15,6 +15,12 @@ describe('LiteOSS', () => {
     };
 
     const oss = new LiteOSS(config);
+
+    it('should use internal endpoint when internal is true', () => {
+        const internalOss = new LiteOSS({ ...config, internal: true });
+        const url = internalOss.getPresignedUrl('test.txt', 3600);
+        expect(url).toContain('.oss-cn-beijing-internal.aliyuncs.com');
+    });
 
     it('should generate correct presigned URL', () => {
         const url = oss.getPresignedUrl('gsc.png', 3600);
@@ -101,6 +107,123 @@ describe('LiteOSS', () => {
         expect(uploadId).toBeTruthy();
 
         await oss.abortMultipartUpload(objectName, uploadId);
+    });
+
+    it('should throw error when abort multipart upload fails', async () => {
+        const objectName = `vitest-abort-test-${Date.now()}.txt`;
+        const uploadId = 'fake-upload-id';
+
+        const response = new Response('Internal Error', { status: 500 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.abortMultipartUpload(objectName, uploadId)).rejects.toThrow('AbortMultipartUpload Failed: 500');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when delete file fails', async () => {
+        const objectName = `vitest-delete-test-${Date.now()}.txt`;
+
+        const response = new Response('Not Found', { status: 404 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.deleteFile(objectName)).rejects.toThrow('Delete Failed: 404');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when download file with range fails', async () => {
+        const objectName = `vitest-range-test-${Date.now()}.txt`;
+
+        const response = new Response('Server Error', { status: 500 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.downloadFileWithRange(objectName, 'bytes=0-100')).rejects.toThrow('Download with Range Failed: 500');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when upload file fails', async () => {
+        const objectName = `vitest-upload-test-${Date.now()}.txt`;
+
+        const response = new Response('Server Error', { status: 500 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.uploadFile(objectName, 'test', 'text/plain')).rejects.toThrow('Upload Failed: 500');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when download file fails', async () => {
+        const objectName = `vitest-download-test-${Date.now()}.txt`;
+
+        const response = new Response('Not Found', { status: 404 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.downloadFile(objectName)).rejects.toThrow('Download Failed: 404');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when initiate multipart upload fails', async () => {
+        const objectName = `vitest-multipart-test-${Date.now()}.txt`;
+
+        const response = new Response('Server Error', { status: 500 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.initiateMultipartUpload(objectName, 'text/plain')).rejects.toThrow('InitiateMultipartUpload Failed: 500');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when cannot parse uploadId', async () => {
+        const objectName = `vitest-multipart-test-${Date.now()}.txt`;
+
+        const response = new Response('No UploadId', { status: 200 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.initiateMultipartUpload(objectName, 'text/plain')).rejects.toThrow('Cannot parse UploadId');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when upload part fails', async () => {
+        const objectName = `vitest-upload-part-test-${Date.now()}.txt`;
+        const uploadId = 'fake-upload-id';
+
+        const response = new Response('Server Error', { status: 500 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.uploadPart(objectName, uploadId, 1, 'data')).rejects.toThrow('UploadPart Failed: 500');
+        vi.restoreAllMocks();
+    });
+
+    it('should return empty string when ETag is null', async () => {
+        const objectName = `vitest-etag-test-${Date.now()}.txt`;
+        const uploadId = 'fake-upload-id';
+
+        const headers = new Headers();
+        // ETag is not set, headers.get('ETag') will return null
+        const response = new Response('OK', { status: 200, headers });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        const eTag = await oss.uploadPart(objectName, uploadId, 1, 'data');
+        expect(eTag).toBe('');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when complete multipart upload fails', async () => {
+        const objectName = `vitest-complete-test-${Date.now()}.txt`;
+        const uploadId = 'fake-upload-id';
+
+        const response = new Response('Server Error', { status: 500 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.completeMultipartUpload(objectName, uploadId, [{ partNumber: 1, eTag: 'etag' }])).rejects.toThrow('CompleteMultipartUpload Failed: 500');
+        vi.restoreAllMocks();
+    });
+
+    it('should throw error when head object fails', async () => {
+        const objectName = `vitest-head-test-${Date.now()}.txt`;
+
+        const response = new Response('Not Found', { status: 404 });
+        vi.spyOn(global, 'fetch').mockResolvedValue(response);
+
+        await expect(oss.headObject(objectName)).rejects.toThrow('HeadObject Failed: 404');
+        vi.restoreAllMocks();
     });
 
     it('should successfully delete a file', async () => {
