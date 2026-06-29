@@ -22,7 +22,7 @@
     "prepack": "tsdown"
   },
   "devDependencies": {
-    "@types/node": "^24.12.4",
+    "@types/node": "^26.0.1",
     "@vitest/coverage-v8": "^4.1.6",
     "dotenv": "^17.4.2",
     "tsdown": "^0.22.0",
