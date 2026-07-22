@@ -29,6 +29,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Debug Environment Variables
+        run: |
+          if [ -z "$OSS_ACCESS_KEY_ID" ]; then
+            echo "❌ OSS_ACCESS_KEY_ID is EMPTY from GitHub Secrets!"
+          else
+            echo "✅ OSS_ACCESS_KEY_ID is Present (Length: ${#OSS_ACCESS_KEY_ID})"
+          fi
+          if [ -z "$OSS_ACCESS_KEY_SECRET" ]; then
+            echo "❌ OSS_ACCESS_KEY_SECRET is EMPTY from GitHub Secrets!"
+          else
+            echo "✅ OSS_ACCESS_KEY_SECRET is Present (Length: ${#OSS_ACCESS_KEY_SECRET})"
+          fi
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+
       - name: Run tests
         run: pnpm test --coverage
         env:
