@@ -117,7 +117,7 @@ func (c *Client) UploadFile(
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		errorMsg, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Upload Failed: %d - %s", resp.StatusCode, string(errorMsg))
+		return nil, fmt.Errorf("upload failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
 
 	return &UploadResult{Success: true, URL: reqURL, ObjectName: objectName}, nil
@@ -147,7 +147,7 @@ func (c *Client) DownloadFile(ctx context.Context, objectName string) ([]byte, e
 
 	if resp.StatusCode != http.StatusOK {
 		errorMsg, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Download Failed: %d - %s", resp.StatusCode, string(errorMsg))
+		return nil, fmt.Errorf("download failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
 
 	return io.ReadAll(resp.Body)
@@ -355,7 +355,7 @@ func (c *Client) DownloadFileWithRange(ctx context.Context, objectName, rangeHea
 
 	if resp.StatusCode != http.StatusOK {
 		errorMsg, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Download with Range Failed: %d - %s", resp.StatusCode, string(errorMsg))
+		return nil, fmt.Errorf("download with range failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
 
 	return io.ReadAll(resp.Body)
@@ -385,7 +385,7 @@ func (c *Client) DeleteFile(ctx context.Context, objectName string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		errorMsg, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Delete Failed: %d - %s", resp.StatusCode, string(errorMsg))
+		return fmt.Errorf("delete failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
 
 	return nil
