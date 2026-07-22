@@ -31,8 +31,8 @@ describe("LiteS3", () => {
   });
 
   it("should successfully upload and download a file", async () => {
-    const testContent = `hello world vitest - ${Date.now()}!`;
-    const objectName = `vitest-upload-test-${Date.now()}.txt`;
+    const testContent = `hello world vitest - ${Math.random().toString(36).slice(2)}!`;
+    const objectName = `vitest-upload-test-${Math.random().toString(36).slice(2)}.txt`;
     const uploadRes = await s3.uploadFile(objectName, testContent, "text/plain");
     expect(uploadRes.success).toBe(true);
     expect(uploadRes.objectName).toBe(objectName);
@@ -46,7 +46,7 @@ describe("LiteS3", () => {
   });
 
   it("should get head object", async () => {
-    const objectName = `vitest-head-test-${Date.now()}.txt`;
+    const objectName = `vitest-head-test-${Math.random().toString(36).slice(2)}.txt`;
     await s3.uploadFile(objectName, "head test content", "text/plain");
 
     const headers = await s3.headObject(objectName);
@@ -58,7 +58,7 @@ describe("LiteS3", () => {
   });
 
   it("should download file with range", async () => {
-    const objectName = `vitest-range-test-${Date.now()}.txt`;
+    const objectName = `vitest-range-test-${Math.random().toString(36).slice(2)}.txt`;
     const content = "0123456789"; // 10 bytes
     await s3.uploadFile(objectName, content, "text/plain");
 
@@ -76,7 +76,7 @@ describe("LiteS3", () => {
   });
 
   it("should successfully perform multipart upload", async () => {
-    const objectName = `vitest-multipart-test-${Date.now()}.txt`;
+    const objectName = `vitest-multipart-test-${Math.random().toString(36).slice(2)}.txt`;
     const part1Content = "a".repeat(102400); // 100KB minimum size for non-last parts
     const part2Content = "part 2 content.";
     const fullContent = part1Content + part2Content;
@@ -102,7 +102,7 @@ describe("LiteS3", () => {
   });
 
   it("should successfully abort multipart upload", async () => {
-    const objectName = `vitest-abort-test-${Date.now()}.txt`;
+    const objectName = `vitest-abort-test-${Math.random().toString(36).slice(2)}.txt`;
     const uploadId = await s3.initiateMultipartUpload(objectName, "text/plain");
     expect(uploadId).toBeTruthy();
 
@@ -110,7 +110,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when abort multipart upload fails", async () => {
-    const objectName = `vitest-abort-test-${Date.now()}.txt`;
+    const objectName = `vitest-abort-test-${Math.random().toString(36).slice(2)}.txt`;
     const uploadId = "fake-upload-id";
 
     const response = new Response("Internal Error", { status: 500 });
@@ -123,7 +123,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when delete file fails", async () => {
-    const objectName = `vitest-delete-test-${Date.now()}.txt`;
+    const objectName = `vitest-delete-test-${Math.random().toString(36).slice(2)}.txt`;
 
     const response = new Response("Not Found", { status: 404 });
     vi.spyOn(global, "fetch").mockResolvedValue(response);
@@ -133,7 +133,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when download file with range fails", async () => {
-    const objectName = `vitest-range-test-${Date.now()}.txt`;
+    const objectName = `vitest-range-test-${Math.random().toString(36).slice(2)}.txt`;
 
     const response = new Response("Server Error", { status: 500 });
     vi.spyOn(global, "fetch").mockResolvedValue(response);
@@ -145,7 +145,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when upload file fails", async () => {
-    const objectName = `vitest-upload-test-${Date.now()}.txt`;
+    const objectName = `vitest-upload-test-${Math.random().toString(36).slice(2)}.txt`;
 
     const response = new Response("Server Error", { status: 500 });
     vi.spyOn(global, "fetch").mockResolvedValue(response);
@@ -157,7 +157,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when download file fails", async () => {
-    const objectName = `vitest-download-test-${Date.now()}.txt`;
+    const objectName = `vitest-download-test-${Math.random().toString(36).slice(2)}.txt`;
 
     const response = new Response("Not Found", { status: 404 });
     vi.spyOn(global, "fetch").mockResolvedValue(response);
@@ -167,7 +167,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when initiate multipart upload fails", async () => {
-    const objectName = `vitest-multipart-test-${Date.now()}.txt`;
+    const objectName = `vitest-multipart-test-${Math.random().toString(36).slice(2)}.txt`;
 
     const response = new Response("Server Error", { status: 500 });
     vi.spyOn(global, "fetch").mockResolvedValue(response);
@@ -179,7 +179,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when cannot parse uploadId", async () => {
-    const objectName = `vitest-multipart-test-${Date.now()}.txt`;
+    const objectName = `vitest-multipart-test-${Math.random().toString(36).slice(2)}.txt`;
 
     const response = new Response("No UploadId", { status: 200 });
     vi.spyOn(global, "fetch").mockResolvedValue(response);
@@ -191,7 +191,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when upload part fails", async () => {
-    const objectName = `vitest-upload-part-test-${Date.now()}.txt`;
+    const objectName = `vitest-upload-part-test-${Math.random().toString(36).slice(2)}.txt`;
     const uploadId = "fake-upload-id";
 
     const response = new Response("Server Error", { status: 500 });
@@ -204,7 +204,7 @@ describe("LiteS3", () => {
   });
 
   it("should return empty string when ETag is null", async () => {
-    const objectName = `vitest-etag-test-${Date.now()}.txt`;
+    const objectName = `vitest-etag-test-${Math.random().toString(36).slice(2)}.txt`;
     const uploadId = "fake-upload-id";
 
     const headers = new Headers();
@@ -217,7 +217,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when complete multipart upload fails", async () => {
-    const objectName = `vitest-complete-test-${Date.now()}.txt`;
+    const objectName = `vitest-complete-test-${Math.random().toString(36).slice(2)}.txt`;
     const uploadId = "fake-upload-id";
 
     const response = new Response("Server Error", { status: 500 });
@@ -230,7 +230,7 @@ describe("LiteS3", () => {
   });
 
   it("should throw error when head object fails", async () => {
-    const objectName = `vitest-head-test-${Date.now()}.txt`;
+    const objectName = `vitest-head-test-${Math.random().toString(36).slice(2)}.txt`;
 
     const response = new Response("Not Found", { status: 404 });
     vi.spyOn(global, "fetch").mockResolvedValue(response);
@@ -240,7 +240,7 @@ describe("LiteS3", () => {
   });
 
   it("should successfully delete a file", async () => {
-    const objectName = `vitest-delete-test-${Date.now()}.txt`;
+    const objectName = `vitest-delete-test-${Math.random().toString(36).slice(2)}.txt`;
     await s3.uploadFile(objectName, "delete me", "text/plain");
 
     await s3.deleteFile(objectName);
