@@ -4,5 +4,5 @@
     "declaration": true,
     "isolatedDeclarations": true
   },
-  "files": ["oss.ts", "oss.test.ts"]
+  "include": ["src/**/*.test.ts", "src/**/*.ts"]
 }

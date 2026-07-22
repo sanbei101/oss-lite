@@ -1,7 +1,7 @@
-import { defineConfig } from 'tsdown'
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ['./oss.ts'],
+  entry: ["./src/index.ts"],
   dts: true,
-  format: "esm"
-})
+  format: "esm",
+});
