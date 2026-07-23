@@ -16,13 +16,13 @@ import (
 	"time"
 )
 
-// Config 存储 S3/OSS 配置信息
+// Config 存储 S3/OSS 通用配置信息
 type Config struct {
-	AccessKeyID     string
-	AccessKeySecret string
-	Bucket          string
-	Region          string
-	Internal        bool
+	AccessKeyID     string // 密钥 ID
+	AccessKeySecret string // 密钥 Secret
+	Bucket          string // 桶名称
+	Region          string // 区域
+	Endpoint        string // 基础域名
 }
 
 // Client LiteS3 客户端
@@ -56,11 +56,10 @@ func NewClient(config Config) *Client {
 	config.AccessKeyID = strings.TrimSpace(config.AccessKeyID)
 	config.AccessKeySecret = strings.TrimSpace(config.AccessKeySecret)
 
-	networkType := ""
-	if config.Internal {
-		networkType = "-internal"
-	}
-	endpoint := fmt.Sprintf("%s.s3.%s%s.aliyuncs.com", config.Bucket, config.Region, networkType)
+	endpoint := strings.TrimSpace(config.Endpoint)
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimRight(endpoint, "/")
 
 	return &Client{
 		config:   config,
@@ -71,7 +70,36 @@ func NewClient(config Config) *Client {
 	}
 }
 
-// computeSignature 计算 HMAC-SHA1 签名并进行 base64 编码
+// buildURL 生成实际发请求用的完整URL
+func (c *Client) buildURL(objectName string, subResource string) string {
+	objectName = strings.TrimPrefix(objectName, "/")
+
+	var rawURL string
+	if strings.HasPrefix(c.endpoint, c.config.Bucket+".") {
+		rawURL = fmt.Sprintf("https://%s/%s", c.endpoint, objectName)
+	} else if c.config.Bucket != "" {
+		rawURL = fmt.Sprintf("https://%s.%s/%s", c.config.Bucket, c.endpoint, objectName)
+	} else {
+		rawURL = fmt.Sprintf("https://%s/%s", c.endpoint, objectName)
+	}
+
+	if subResource != "" {
+		rawURL = fmt.Sprintf("%s?%s", rawURL, subResource)
+	}
+	return rawURL
+}
+
+// getCanonicalizedResource 生成 S3 签名计算所需的规范化资源路径
+func (c *Client) getCanonicalizedResource(objectName string, subResource string) string {
+	objectName = strings.TrimPrefix(objectName, "/")
+	res := fmt.Sprintf("/%s/%s", c.config.Bucket, objectName)
+	if subResource != "" {
+		res = fmt.Sprintf("%s?%s", res, subResource)
+	}
+	return res
+}
+
+// computeSignature 计算 HMAC-SHA1 签名并进行 Base64 编码
 func (c *Client) computeSignature(stringToSign string) string {
 	mac := hmac.New(sha1.New, []byte(c.config.AccessKeySecret))
 	mac.Write([]byte(stringToSign))
@@ -96,10 +124,10 @@ func (c *Client) UploadFile(
 
 	verb := http.MethodPut
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf("/%s/%s", c.config.Bucket, objectName)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, "")
 	stringToSign := fmt.Sprintf("%s\n\n%s\n%s\n%s", verb, contentType, date, canonicalizedResource)
 
-	reqURL := fmt.Sprintf("https://%s/%s", c.endpoint, objectName)
+	reqURL := c.buildURL(objectName, "")
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, data)
 	if err != nil {
 		return nil, err
@@ -123,14 +151,14 @@ func (c *Client) UploadFile(
 	return &UploadResult{Success: true, URL: reqURL, ObjectName: objectName}, nil
 }
 
-// DownloadFile 下载文件,返回文件内容的字节数组 []byte
+// DownloadFile 下载文件
 func (c *Client) DownloadFile(ctx context.Context, objectName string) ([]byte, error) {
 	verb := http.MethodGet
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf("/%s/%s", c.config.Bucket, objectName)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, "")
 	stringToSign := fmt.Sprintf("%s\n\n\n%s\n%s", verb, date, canonicalizedResource)
 
-	reqURL := fmt.Sprintf("https://%s/%s", c.endpoint, objectName)
+	reqURL := c.buildURL(objectName, "")
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, nil)
 	if err != nil {
 		return nil, err
@@ -153,14 +181,14 @@ func (c *Client) DownloadFile(ctx context.Context, objectName string) ([]byte, e
 	return io.ReadAll(resp.Body)
 }
 
-// GetPresignedURL 生成带有效期的临时下载链接 (expiresIn 默认值传入 3600)
+// GetPresignedURL 生成带签名的临时下载链接
 func (c *Client) GetPresignedURL(objectName string, expiresIn int64) string {
 	if expiresIn <= 0 {
 		expiresIn = 3600
 	}
 	verb := http.MethodGet
 	expiresTimestamp := time.Now().Unix() + expiresIn
-	canonicalizedResource := fmt.Sprintf("/%s/%s", c.config.Bucket, objectName)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, "")
 
 	stringToSign := fmt.Sprintf("%s\n\n\n%d\n%s", verb, expiresTimestamp, canonicalizedResource)
 	signature := c.computeSignature(stringToSign)
@@ -170,7 +198,8 @@ func (c *Client) GetPresignedURL(objectName string, expiresIn int64) string {
 	params.Set("Expires", strconv.FormatInt(expiresTimestamp, 10))
 	params.Set("Signature", signature)
 
-	return fmt.Sprintf("https://%s/%s?%s", c.endpoint, objectName, params.Encode())
+	baseURL := c.buildURL(objectName, "")
+	return fmt.Sprintf("%s?%s", baseURL, params.Encode())
 }
 
 // InitiateMultipartUpload 分片上传 - 初始化
@@ -180,10 +209,11 @@ func (c *Client) InitiateMultipartUpload(ctx context.Context, objectName, conten
 	}
 	verb := http.MethodPost
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf("/%s/%s?uploads", c.config.Bucket, objectName)
+	subResource := "uploads"
+	canonicalizedResource := c.getCanonicalizedResource(objectName, subResource)
 	stringToSign := fmt.Sprintf("%s\n\n%s\n%s\n%s", verb, contentType, date, canonicalizedResource)
 
-	reqURL := fmt.Sprintf("https://%s/%s?uploads", c.endpoint, objectName)
+	reqURL := c.buildURL(objectName, subResource)
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, nil)
 	if err != nil {
 		return "", err
@@ -227,16 +257,11 @@ func (c *Client) UploadPart(
 	}
 	verb := http.MethodPut
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf(
-		"/%s/%s?partNumber=%d&uploadId=%s",
-		c.config.Bucket,
-		objectName,
-		partNumber,
-		uploadID,
-	)
+	subResource := fmt.Sprintf("partNumber=%d&uploadId=%s", partNumber, uploadID)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, subResource)
 	stringToSign := fmt.Sprintf("%s\n\n%s\n%s\n%s", verb, contentType, date, canonicalizedResource)
 
-	reqURL := fmt.Sprintf("https://%s/%s?partNumber=%d&uploadId=%s", c.endpoint, objectName, partNumber, uploadID)
+	reqURL := c.buildURL(objectName, subResource)
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, data)
 	if err != nil {
 		return "", err
@@ -264,7 +289,8 @@ func (c *Client) UploadPart(
 func (c *Client) CompleteMultipartUpload(ctx context.Context, objectName, uploadID string, parts []Part) error {
 	verb := http.MethodPost
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf("/%s/%s?uploadId=%s", c.config.Bucket, objectName, uploadID)
+	subResource := fmt.Sprintf("uploadId=%s", uploadID)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, subResource)
 	contentType := "application/xml"
 	stringToSign := fmt.Sprintf("%s\n\n%s\n%s\n%s", verb, contentType, date, canonicalizedResource)
 
@@ -274,7 +300,7 @@ func (c *Client) CompleteMultipartUpload(ctx context.Context, objectName, upload
 	}
 	body := append([]byte(xml.Header), xmlBody...)
 
-	reqURL := fmt.Sprintf("https://%s/%s?uploadId=%s", c.endpoint, objectName, uploadID)
+	reqURL := c.buildURL(objectName, subResource)
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -302,10 +328,11 @@ func (c *Client) CompleteMultipartUpload(ctx context.Context, objectName, upload
 func (c *Client) AbortMultipartUpload(ctx context.Context, objectName, uploadID string) error {
 	verb := http.MethodDelete
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf("/%s/%s?uploadId=%s", c.config.Bucket, objectName, uploadID)
+	subResource := fmt.Sprintf("uploadId=%s", uploadID)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, subResource)
 	stringToSign := fmt.Sprintf("%s\n\n\n%s\n%s", verb, date, canonicalizedResource)
 
-	reqURL := fmt.Sprintf("https://%s/%s?uploadId=%s", c.endpoint, objectName, uploadID)
+	reqURL := c.buildURL(objectName, subResource)
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, nil)
 	if err != nil {
 		return err
@@ -328,14 +355,14 @@ func (c *Client) AbortMultipartUpload(ctx context.Context, objectName, uploadID 
 	return nil
 }
 
-// DownloadFileWithRange 范围下载/断点续传下载
+// DownloadFileWithRange 范围下载/断点续传
 func (c *Client) DownloadFileWithRange(ctx context.Context, objectName, rangeHeader string) ([]byte, error) {
 	verb := http.MethodGet
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf("/%s/%s", c.config.Bucket, objectName)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, "")
 	stringToSign := fmt.Sprintf("%s\n\n\n%s\n%s", verb, date, canonicalizedResource)
 
-	reqURL := fmt.Sprintf("https://%s/%s", c.endpoint, objectName)
+	reqURL := c.buildURL(objectName, "")
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, nil)
 	if err != nil {
 		return nil, err
@@ -365,10 +392,10 @@ func (c *Client) DownloadFileWithRange(ctx context.Context, objectName, rangeHea
 func (c *Client) DeleteFile(ctx context.Context, objectName string) error {
 	verb := http.MethodDelete
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf("/%s/%s", c.config.Bucket, objectName)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, "")
 	stringToSign := fmt.Sprintf("%s\n\n\n%s\n%s", verb, date, canonicalizedResource)
 
-	reqURL := fmt.Sprintf("https://%s/%s", c.endpoint, objectName)
+	reqURL := c.buildURL(objectName, "")
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, nil)
 	if err != nil {
 		return err
@@ -395,10 +422,10 @@ func (c *Client) DeleteFile(ctx context.Context, objectName string) error {
 func (c *Client) HeadObject(ctx context.Context, objectName string) (http.Header, error) {
 	verb := http.MethodHead
 	date := time.Now().UTC().Format(http.TimeFormat)
-	canonicalizedResource := fmt.Sprintf("/%s/%s", c.config.Bucket, objectName)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, "")
 	stringToSign := fmt.Sprintf("%s\n\n\n%s\n%s", verb, date, canonicalizedResource)
 
-	reqURL := fmt.Sprintf("https://%s/%s", c.endpoint, objectName)
+	reqURL := c.buildURL(objectName, "")
 	req, err := http.NewRequestWithContext(ctx, verb, reqURL, nil)
 	if err != nil {
 		return nil, err
@@ -420,7 +447,7 @@ func (c *Client) HeadObject(ctx context.Context, objectName string) (http.Header
 	return resp.Header, nil
 }
 
-// PutObjectPresign 生成带签名的上传链接
+// PutObjectPresign 生成带签名的预上传链接
 func (c *Client) PutObjectPresign(objectName string, expiresIn int64, contentType string) string {
 	if expiresIn <= 0 {
 		expiresIn = 3600
@@ -431,7 +458,7 @@ func (c *Client) PutObjectPresign(objectName string, expiresIn int64, contentTyp
 
 	verb := http.MethodPut
 	expiresTimestamp := time.Now().Unix() + expiresIn
-	canonicalizedResource := fmt.Sprintf("/%s/%s", c.config.Bucket, objectName)
+	canonicalizedResource := c.getCanonicalizedResource(objectName, "")
 
 	stringToSign := fmt.Sprintf("%s\n\n%s\n%d\n%s", verb, contentType, expiresTimestamp, canonicalizedResource)
 	signature := c.computeSignature(stringToSign)
@@ -441,5 +468,6 @@ func (c *Client) PutObjectPresign(objectName string, expiresIn int64, contentTyp
 	params.Set("Expires", strconv.FormatInt(expiresTimestamp, 10))
 	params.Set("Signature", signature)
 
-	return fmt.Sprintf("https://%s/%s?%s", c.endpoint, objectName, params.Encode())
+	baseURL := c.buildURL(objectName, "")
+	return fmt.Sprintf("%s?%s", baseURL, params.Encode())
 }

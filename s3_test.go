@@ -52,20 +52,11 @@ func TestLiteS3(t *testing.T) {
 		AccessKeySecret: sk,
 		Bucket:          "tuchuang-ghr",
 		Region:          "oss-cn-beijing",
+		Endpoint:        "s3.oss-cn-beijing.aliyuncs.com",
 	}
 
 	s3 := NewClient(config)
 	ctx := context.Background()
-
-	t.Run("should use internal endpoint when internal is true", func(t *testing.T) {
-		internalConfig := config
-		internalConfig.Internal = true
-		internalS3 := NewClient(internalConfig)
-		url := internalS3.GetPresignedURL("test.txt", 3600)
-		if !strings.Contains(url, ".s3.oss-cn-beijing-internal.aliyuncs.com") {
-			t.Errorf("Expected URL to contain internal endpoint, got: %s", url)
-		}
-	})
 
 	t.Run("should generate correct presigned URL", func(t *testing.T) {
 		url := s3.GetPresignedURL("test.png", 3600)
@@ -328,7 +319,6 @@ func TestLiteS3(t *testing.T) {
 			t.Fatalf("DeleteFile failed: %v", err)
 		}
 
-		// 检查文件是否真的被删除了 (Head 应该返回报错)
 		header, err := s3.HeadObject(ctx, objectName)
 		if err == nil || header.Get("Content-Length") != "" {
 			t.Errorf("Expected HeadObject to fail after deletion, but it succeeded")
