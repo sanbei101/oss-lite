@@ -201,7 +201,7 @@ func (c *Client) InitiateMultipartUpload(ctx context.Context, objectName, conten
 
 	if resp.StatusCode != http.StatusOK {
 		errorMsg, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("InitiateMultipartUpload Failed: %d - %s", resp.StatusCode, string(errorMsg))
+		return "", fmt.Errorf("initiate multipart upload failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
 
 	body, _ := io.ReadAll(resp.Body)
@@ -209,7 +209,7 @@ func (c *Client) InitiateMultipartUpload(ctx context.Context, objectName, conten
 		UploadID string `xml:"UploadId"`
 	}
 	if err := xml.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("cannot parse UploadId XML: %w (raw: %s)", err, string(body))
+		return "", fmt.Errorf("cannot parse uploadId XML: %w (raw: %s)", err, string(body))
 	}
 	return result.UploadID, nil
 }
@@ -254,7 +254,7 @@ func (c *Client) UploadPart(
 
 	if resp.StatusCode != http.StatusOK {
 		errorMsg, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("UploadPart Failed: %d - %s", resp.StatusCode, string(errorMsg))
+		return "", fmt.Errorf("upload part failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
 
 	return resp.Header.Get("ETag"), nil
@@ -292,7 +292,7 @@ func (c *Client) CompleteMultipartUpload(ctx context.Context, objectName, upload
 
 	if resp.StatusCode != http.StatusOK {
 		errorMsg, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("CompleteMultipartUpload Failed: %d - %s", resp.StatusCode, string(errorMsg))
+		return fmt.Errorf("complete multipart upload failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
 
 	return nil
@@ -320,9 +320,9 @@ func (c *Client) AbortMultipartUpload(ctx context.Context, objectName, uploadID 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		errorMsg, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("AbortMultipartUpload Failed: %d - %s", resp.StatusCode, string(errorMsg))
+		return fmt.Errorf("abort multipart upload failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
 
 	return nil
@@ -353,7 +353,7 @@ func (c *Client) DownloadFileWithRange(ctx context.Context, objectName, rangeHea
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		errorMsg, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("download with range failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
@@ -383,7 +383,7 @@ func (c *Client) DeleteFile(ctx context.Context, objectName string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		errorMsg, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("delete failed: %d - %s", resp.StatusCode, string(errorMsg))
 	}
@@ -414,7 +414,7 @@ func (c *Client) HeadObject(ctx context.Context, objectName string) (http.Header
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HeadObject Failed: %d", resp.StatusCode)
+		return nil, fmt.Errorf("head object failed: %d", resp.StatusCode)
 	}
 
 	return resp.Header, nil

@@ -231,7 +231,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when abort multipart upload fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 500, "Internal Error", nil)
 		err := mockS3.AbortMultipartUpload(ctx, "test.txt", "fake-id")
-		if err == nil || !strings.Contains(err.Error(), "AbortMultipartUpload Failed: 500") {
+		if err == nil || !strings.Contains(err.Error(), "abort multipart upload failed: 500") {
 			t.Errorf("Expected abort failure error, got: %v", err)
 		}
 	})
@@ -239,7 +239,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when delete file fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 404, "Not Found", nil)
 		err := mockS3.DeleteFile(ctx, "test.txt")
-		if err == nil || !strings.Contains(err.Error(), "Delete Failed: 404") {
+		if err == nil || !strings.Contains(err.Error(), "delete failed: 404") {
 			t.Errorf("Expected delete failure error, got: %v", err)
 		}
 	})
@@ -247,7 +247,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when download file with range fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 500, "Server Error", nil)
 		_, err := mockS3.DownloadFileWithRange(ctx, "test.txt", "bytes=0-100")
-		if err == nil || !strings.Contains(err.Error(), "Download with Range Failed: 500") {
+		if err == nil || !strings.Contains(err.Error(), "download with range failed: 500") {
 			t.Errorf("Expected download with range failure error, got: %v", err)
 		}
 	})
@@ -255,7 +255,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when upload file fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 500, "Server Error", nil)
 		_, err := mockS3.UploadFile(ctx, "test.txt", strings.NewReader("test"), "text/plain")
-		if err == nil || !strings.Contains(err.Error(), "Upload Failed: 500") {
+		if err == nil || !strings.Contains(err.Error(), "upload failed: 500") {
 			t.Errorf("Expected upload failure error, got: %v", err)
 		}
 	})
@@ -263,7 +263,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when download file fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 404, "Not Found", nil)
 		_, err := mockS3.DownloadFile(ctx, "test.txt")
-		if err == nil || !strings.Contains(err.Error(), "Failed: 404") {
+		if err == nil || !strings.Contains(err.Error(), "download failed: 404") {
 			t.Errorf("Expected download failure error, got: %v", err)
 		}
 	})
@@ -271,7 +271,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when initiate multipart upload fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 500, "Server Error", nil)
 		_, err := mockS3.InitiateMultipartUpload(ctx, "test.txt", "text/plain")
-		if err == nil || !strings.Contains(err.Error(), "InitiateMultipartUpload Failed: 500") {
+		if err == nil || !strings.Contains(err.Error(), "initiate multipart upload failed: 500") {
 			t.Errorf("Expected initiate multipart failure error, got: %v", err)
 		}
 	})
@@ -279,7 +279,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when cannot parse uploadId", func(t *testing.T) {
 		mockS3 := createMockClient(config, 200, "No UploadId XML", nil)
 		_, err := mockS3.InitiateMultipartUpload(ctx, "test.txt", "text/plain")
-		if err == nil || !strings.Contains(err.Error(), "cannot parse UploadId") {
+		if err == nil || !strings.Contains(err.Error(), "cannot parse uploadId") {
 			t.Errorf("Expected parse XML error, got: %v", err)
 		}
 	})
@@ -287,7 +287,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when upload part fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 500, "Server Error", nil)
 		_, err := mockS3.UploadPart(ctx, "test.txt", "fake-id", 1, strings.NewReader("data"), "text/plain")
-		if err == nil || !strings.Contains(err.Error(), "UploadPart Failed: 500") {
+		if err == nil || !strings.Contains(err.Error(), "upload part failed: 500") {
 			t.Errorf("Expected upload part failure error, got: %v", err)
 		}
 	})
@@ -306,7 +306,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when complete multipart upload fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 500, "Server Error", nil)
 		err := mockS3.CompleteMultipartUpload(ctx, "test.txt", "fake-id", []Part{{PartNumber: 1, ETag: "etag"}})
-		if err == nil || !strings.Contains(err.Error(), "CompleteMultipartUpload Failed: 500") {
+		if err == nil || !strings.Contains(err.Error(), "complete multipart upload failed: 500") {
 			t.Errorf("Expected complete multipart failure error, got: %v", err)
 		}
 	})
@@ -314,7 +314,7 @@ func TestLiteS3(t *testing.T) {
 	t.Run("should throw error when head object fails", func(t *testing.T) {
 		mockS3 := createMockClient(config, 404, "Not Found", nil)
 		_, err := mockS3.HeadObject(ctx, "test.txt")
-		if err == nil || !strings.Contains(err.Error(), "HeadObject Failed: 404") {
+		if err == nil || !strings.Contains(err.Error(), "head object failed: 404") {
 			t.Errorf("Expected head object failure error, got: %v", err)
 		}
 	})
