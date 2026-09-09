@@ -6,6 +6,7 @@ export type S3Config = {
   bucket: string;
   region: string;
   internal?: boolean;
+  stsToken?: string;
 };
 
 export class LiteS3 {
@@ -23,6 +24,14 @@ export class LiteS3 {
       .createHmac("sha1", this.config.accessKeySecret)
       .update(stringToSign, "utf8")
       .digest("base64");
+  }
+
+  private stsPrefix(): string {
+    return this.config.stsToken ? `x-amz-security-token:${this.config.stsToken}\n` : "";
+  }
+
+  private stsHeader(): Record<string, string> {
+    return this.config.stsToken ? { "x-amz-security-token": this.config.stsToken } : {};
   }
 
   /**
@@ -43,7 +52,7 @@ export class LiteS3 {
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
 
-    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -53,6 +62,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         "Content-Type": contentType,
         Authorization: authorization,
       },
@@ -74,7 +84,7 @@ export class LiteS3 {
     const verb = "GET";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -84,6 +94,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
       },
     });
@@ -113,6 +124,7 @@ export class LiteS3 {
       AWSAccessKeyId: this.config.accessKeyId,
       Expires: expiresTimestamp.toString(),
       Signature: signature,
+      ...(this.config.stsToken ? { SecurityToken: this.config.stsToken } : {}),
     });
 
     return `https://${this.endpoint}/${objectName}?${params.toString()}`;
@@ -130,7 +142,7 @@ export class LiteS3 {
     const verb = "POST";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}?uploads`;
-    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -140,6 +152,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         "Content-Type": contentType,
         Authorization: authorization,
       },
@@ -176,7 +189,7 @@ export class LiteS3 {
     const verb = "PUT";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}?partNumber=${partNumber}&uploadId=${uploadId}`;
-    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -186,6 +199,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         "Content-Type": contentType,
         Authorization: authorization,
       },
@@ -215,7 +229,7 @@ export class LiteS3 {
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}?uploadId=${uploadId}`;
     const contentType = "application/xml";
-    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -227,6 +241,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         "Content-Type": contentType,
         Authorization: authorization,
       },
@@ -248,7 +263,7 @@ export class LiteS3 {
     const verb = "DELETE";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}?uploadId=${uploadId}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -258,6 +273,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
       },
     });
@@ -277,7 +293,7 @@ export class LiteS3 {
     const verb = "GET";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -287,6 +303,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
         Range: range,
       },
@@ -308,7 +325,7 @@ export class LiteS3 {
     const verb = "DELETE";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -318,6 +335,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
       },
     });
@@ -336,7 +354,7 @@ export class LiteS3 {
     const verb = "HEAD";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `AWS ${this.config.accessKeyId}:${signature}`;
 
@@ -345,6 +363,7 @@ export class LiteS3 {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
       },
     });
@@ -377,6 +396,7 @@ export class LiteS3 {
       AWSAccessKeyId: this.config.accessKeyId,
       Expires: expiresTimestamp.toString(),
       Signature: signature,
+      ...(this.config.stsToken ? { SecurityToken: this.config.stsToken } : {}),
     });
 
     return `https://${this.endpoint}/${objectName}?${params.toString()}`;

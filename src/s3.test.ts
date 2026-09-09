@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { LiteS3 } from "./s3";
+import { assumeRole, type TempCreds } from "./sts-helper";
 
 describe("LiteS3", () => {
   if (!process.env.OSS_ACCESS_KEY_ID || !process.env.OSS_ACCESS_KEY_SECRET) {
@@ -245,5 +246,60 @@ describe("LiteS3", () => {
 
     await s3.deleteFile(objectName);
     await expect(s3.headObject(objectName)).rejects.toThrow("404");
+  });
+
+  describe("with STS token", () => {
+    if (!process.env.OSS_ROLE_ARN) {
+      it.skip("Skipped because OSS_ROLE_ARN is not set", () => {});
+      return;
+    }
+
+    let stsS3: LiteS3;
+    beforeAll(async () => {
+      const creds: TempCreds = await assumeRole(
+        config.accessKeyId,
+        config.accessKeySecret,
+        process.env.OSS_ROLE_ARN!,
+      );
+      expect(creds.stsToken).toBeTruthy();
+      stsS3 = new LiteS3({
+        ...config,
+        accessKeyId: creds.accessKeyId,
+        accessKeySecret: creds.accessKeySecret,
+        stsToken: creds.stsToken,
+      });
+    });
+
+    it(
+      "should work end-to-end with STS token",
+      { timeout: 60000 },
+      async () => {
+        const objectName = `vitest-sts-s3-${Math.random().toString(36).slice(2)}.txt`;
+        const content = `sts s3 hello - ${Math.random().toString(36).slice(2)}`;
+
+        const uploadRes = await stsS3.uploadFile(objectName, content, "text/plain");
+        expect(uploadRes.success).toBe(true);
+
+        const downloadText = new TextDecoder().decode(await stsS3.downloadFile(objectName));
+        expect(downloadText).toBe(content);
+
+        const presignedRes = await fetch(stsS3.getPresignedUrl(objectName, 600));
+        expect(presignedRes.ok).toBe(true);
+        expect(await presignedRes.text()).toBe(content);
+
+        const putName = `vitest-sts-s3-put-${Math.random().toString(36).slice(2)}.txt`;
+        const putRes = await fetch(stsS3.putObjectPresign(putName, 600, "text/plain"), {
+          method: "PUT",
+          headers: { "Content-Type": "text/plain" },
+          body: content,
+        });
+        expect(putRes.ok).toBe(true);
+        expect(new TextDecoder().decode(await stsS3.downloadFile(putName))).toBe(content);
+
+        await stsS3.deleteFile(objectName);
+        await stsS3.deleteFile(putName);
+        await expect(stsS3.headObject(objectName)).rejects.toThrow("404");
+      },
+    );
   });
 });

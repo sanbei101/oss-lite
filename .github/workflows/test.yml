@@ -41,15 +41,22 @@ jobs:
           else
             echo "✅ OSS_ACCESS_KEY_SECRET is Present (Length: ${#OSS_ACCESS_KEY_SECRET})"
           fi
+          if [ -z "$OSS_ROLE_ARN" ]; then
+            echo "❌ OSS_ROLE_ARN is EMPTY from GitHub Secrets!"
+          else
+            echo "✅ OSS_ROLE_ARN is Present (Length: ${#OSS_ROLE_ARN})"
+          fi
         env:
           OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          OSS_ROLE_ARN: ${{ secrets.OSS_ROLE_ARN }}
 
       - name: Run tests
         run: pnpm test --coverage
         env:
           OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          OSS_ROLE_ARN: ${{ secrets.OSS_ROLE_ARN }}
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v7

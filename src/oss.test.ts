@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { LiteOSS } from "./oss";
+import { assumeRole, type TempCreds } from "./sts-helper";
 
 describe("LiteOSS", () => {
   if (!process.env.OSS_ACCESS_KEY_ID || !process.env.OSS_ACCESS_KEY_SECRET) {
@@ -246,5 +247,68 @@ describe("LiteOSS", () => {
 
     await oss.deleteFile(objectName);
     await expect(oss.headObject(objectName)).rejects.toThrow("404");
+  });
+
+  describe("with STS token", () => {
+    if (!process.env.OSS_ROLE_ARN) {
+      it.skip("Skipped because OSS_ROLE_ARN is not set", () => {});
+      return;
+    }
+
+    let stsOss: LiteOSS;
+    beforeAll(async () => {
+      const creds: TempCreds = await assumeRole(
+        config.accessKeyId,
+        config.accessKeySecret,
+        process.env.OSS_ROLE_ARN!,
+      );
+      expect(creds.stsToken).toBeTruthy();
+      stsOss = new LiteOSS({
+        ...config,
+        accessKeyId: creds.accessKeyId,
+        accessKeySecret: creds.accessKeySecret,
+        stsToken: creds.stsToken,
+      });
+    });
+
+    it(
+      "should work end-to-end with STS token",
+      { timeout: 60000 },
+      async () => {
+        const objectName = `vitest-sts-${Math.random().toString(36).slice(2)}.txt`;
+        const content = `sts hello - ${Math.random().toString(36).slice(2)}`;
+
+        const uploadRes = await stsOss.uploadFile(objectName, content, "text/plain");
+        expect(uploadRes.success).toBe(true);
+
+        const downloadText = new TextDecoder().decode(await stsOss.downloadFile(objectName));
+        expect(downloadText).toBe(content);
+
+        const rangeText = new TextDecoder().decode(
+          await stsOss.downloadFileWithRange(objectName, "bytes=0-2"),
+        );
+        expect(rangeText).toBe(content.slice(0, 3));
+
+        const headers = await stsOss.headObject(objectName);
+        expect(headers.get("content-length")).toBe(String(new TextEncoder().encode(content).length));
+
+        const presignedRes = await fetch(stsOss.getPresignedUrl(objectName, 600));
+        expect(presignedRes.ok).toBe(true);
+        expect(await presignedRes.text()).toBe(content);
+
+        const putName = `vitest-sts-put-${Math.random().toString(36).slice(2)}.txt`;
+        const putRes = await fetch(stsOss.putObjectPresign(putName, 600, "text/plain"), {
+          method: "PUT",
+          headers: { "Content-Type": "text/plain" },
+          body: content,
+        });
+        expect(putRes.ok).toBe(true);
+        expect(new TextDecoder().decode(await stsOss.downloadFile(putName))).toBe(content);
+
+        await stsOss.deleteFile(objectName);
+        await stsOss.deleteFile(putName);
+        await expect(stsOss.headObject(objectName)).rejects.toThrow("404");
+      },
+    );
   });
 });

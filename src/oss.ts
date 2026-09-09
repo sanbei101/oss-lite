@@ -6,6 +6,7 @@ export type OSSConfig = {
   bucket: string;
   region: string;
   internal?: boolean;
+  stsToken?: string;
 };
 
 export class LiteOSS {
@@ -23,6 +24,14 @@ export class LiteOSS {
       .createHmac("sha1", this.config.accessKeySecret)
       .update(stringToSign, "utf8")
       .digest("base64");
+  }
+
+  private stsPrefix(): string {
+    return this.config.stsToken ? `x-oss-security-token:${this.config.stsToken}\n` : "";
+  }
+
+  private stsHeader(): Record<string, string> {
+    return this.config.stsToken ? { "x-oss-security-token": this.config.stsToken } : {};
   }
 
   /**
@@ -43,7 +52,7 @@ export class LiteOSS {
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
 
-    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -53,6 +62,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         "Content-Type": contentType,
         Authorization: authorization,
       },
@@ -74,7 +84,7 @@ export class LiteOSS {
     const verb = "GET";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -84,6 +94,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
       },
     });
@@ -105,14 +116,18 @@ export class LiteOSS {
     const verb = "GET";
     const expiresTimestamp = Math.floor(Date.now() / 1000) + expiresIn;
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
+    const resourceToSign = this.config.stsToken
+      ? `${canonicalizedResource}?security-token=${this.config.stsToken}`
+      : canonicalizedResource;
 
-    const stringToSign = `${verb}\n\n\n${expiresTimestamp}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${expiresTimestamp}\n${resourceToSign}`;
     const signature = this.computeSignature(stringToSign);
 
     const params = new URLSearchParams({
       OSSAccessKeyId: this.config.accessKeyId,
       Expires: expiresTimestamp.toString(),
       Signature: signature,
+      ...(this.config.stsToken ? { "security-token": this.config.stsToken } : {}),
     });
 
     return `https://${this.endpoint}/${objectName}?${params.toString()}`;
@@ -130,7 +145,7 @@ export class LiteOSS {
     const verb = "POST";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}?uploads`;
-    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -140,6 +155,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         "Content-Type": contentType,
         Authorization: authorization,
       },
@@ -176,7 +192,7 @@ export class LiteOSS {
     const verb = "PUT";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}?partNumber=${partNumber}&uploadId=${uploadId}`;
-    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -186,6 +202,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         "Content-Type": contentType,
         Authorization: authorization,
       },
@@ -215,7 +232,7 @@ export class LiteOSS {
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}?uploadId=${uploadId}`;
     const contentType = "application/xml";
-    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -227,6 +244,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         "Content-Type": contentType,
         Authorization: authorization,
       },
@@ -248,7 +266,7 @@ export class LiteOSS {
     const verb = "DELETE";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}?uploadId=${uploadId}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -258,6 +276,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
       },
     });
@@ -277,7 +296,7 @@ export class LiteOSS {
     const verb = "GET";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -287,6 +306,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
         Range: range,
       },
@@ -308,7 +328,7 @@ export class LiteOSS {
     const verb = "DELETE";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -318,6 +338,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
       },
     });
@@ -336,7 +357,7 @@ export class LiteOSS {
     const verb = "HEAD";
     const date = new Date().toUTCString();
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
-    const stringToSign = `${verb}\n\n\n${date}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n\n${date}\n${this.stsPrefix()}${canonicalizedResource}`;
     const signature = this.computeSignature(stringToSign);
     const authorization = `OSS ${this.config.accessKeyId}:${signature}`;
 
@@ -345,6 +366,7 @@ export class LiteOSS {
       method: verb,
       headers: {
         Date: date,
+        ...this.stsHeader(),
         Authorization: authorization,
       },
     });
@@ -369,14 +391,18 @@ export class LiteOSS {
     const verb = "PUT";
     const expiresTimestamp = Math.floor(Date.now() / 1000) + expiresIn;
     const canonicalizedResource = `/${this.config.bucket}/${objectName}`;
+    const resourceToSign = this.config.stsToken
+      ? `${canonicalizedResource}?security-token=${this.config.stsToken}`
+      : canonicalizedResource;
 
-    const stringToSign = `${verb}\n\n${contentType}\n${expiresTimestamp}\n${canonicalizedResource}`;
+    const stringToSign = `${verb}\n\n${contentType}\n${expiresTimestamp}\n${resourceToSign}`;
     const signature = this.computeSignature(stringToSign);
 
     const params = new URLSearchParams({
       OSSAccessKeyId: this.config.accessKeyId,
       Expires: expiresTimestamp.toString(),
       Signature: signature,
+      ...(this.config.stsToken ? { "security-token": this.config.stsToken } : {}),
     });
 
     return `https://${this.endpoint}/${objectName}?${params.toString()}`;
